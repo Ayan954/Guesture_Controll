@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Birthday Sphere</title>
+<style>
+body { margin:0; overflow:hidden; background:#000; font-family:system-ui; }
+#cameraView { position:fixed; top:12px; right:12px; width:200px; height:150px; border-radius:12px; border:2px solid #ff69b4; object-fit:cover; z-index:10; }
+#instructions { position:fixed; bottom:12px; left:50%; transform:translateX(-50%); width:90%; font-size:14px; line-height:1.4; color:#fff; text-align:center; background:rgba(0,0,0,0.4); padding:10px 12px; border-radius:10px; box-shadow:0 0 15px rgba(255,105,180,0.5); z-index:10; }
+</style>
+</head>
+<body>
+<video id="cameraView" autoplay muted playsinline></video>
+<div id="instructions">
+<b>Instructions:</b><br>
+- Rotate sphere with hand (or drag).<br>
+- Pinch to zoom.<br>
+- Texts, emojis, and images are visible.<br>
+- Run this file via localhost or HTTPS to enable camera.
+</div>
+
+<script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+<script>
+// THREE SETUP
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(70,window.innerWidth/window.innerHeight,0.1,2000);
+camera.position.z = 300;
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth,window.innerHeight);
+document.body.appendChild(renderer.domElement);
+const sphere = new THREE.Group();
+scene.add(sphere);
+
+// TEXT SPRITES
+function createTextSprite(text){
+  const canvas = document.createElement('canvas');
+  canvas.width=512; canvas.height=256;
+  const ctx = canvas.getContext('2d');
+  ctx.font='bold 64px Arial';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.shadowColor='#ff69b4'; ctx.shadowBlur=50;
+  ctx.fillStyle='#fff'; ctx.fillText(text,256,128);
+  const tex = new THREE.CanvasTexture(canvas); tex.needsUpdate=true;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent:true }));
+  sprite.scale.set(150,75,1);
+  return sprite;
+}
+function emojiSprite(e){
+  const c=document.createElement('canvas'); c.width=128; c.height=128;
+  const ctx=c.getContext('2d'); ctx.font='64px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(e,64,64);
+  const tex=new THREE.CanvasTexture(c); tex.needsUpdate=true;
+  return new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true}));
+}
+function place(obj,r,phi,theta){
+  obj.position.set(r*Math.sin(phi)*Math.cos(theta), r*Math.cos(phi), r*Math.sin(phi)*Math.sin(theta));
+  obj.lookAt(0,0,0);
+}
+
+// ELEMENTS
+const TEXTS=["Happy Birthday 💖","Stay Blessed ✨","With Love ❤️","Forever Smiling 😊","Best Day Ever 🎂"];
+const BASE_R=160;
+for(let lat=0;lat<7;lat++){
+  for(let lon=0;lon<14;lon++){
+    const s=emojiSprite(Math.random()>0.5?"❤️":"🌸"); s.scale.set(20,20,1);
+    place(s,BASE_R,Math.PI*(lat+1)/8,lon*(Math.PI*2/14));
+    sphere.add(s);
+  }
+}
+TEXTS.forEach((t,i)=>{
+  const s=createTextSprite(t);
+  place(s,BASE_R+Math.random()*40-20,Math.PI*(i+1)/7,i*1.4);
+  sphere.add(s);
+});
+// scattered emojis
+for(let i=0;i<80;i++){
+  const s=emojiSprite(Math.random()>0.5?"💗":"🍃");
+  s.scale.set(16+Math.random()*16,16+Math.random()*16,1);
+  place(s,BASE_R+Math.random()*100-50, Math.random()*Math.PI, Math.random()*Math.PI*2);
+  sphere.add(s);
+}
+
+// TOUCH ROTATE + ZOOM
+let pointers=[], lastDist=0;
+addEventListener('pointerdown', e=>pointers.push(e));
+addEventListener('pointerup', e=>{ pointers=pointers.filter(p=>p.pointerId!==e.pointerId); lastDist=0; });
+addEventListener('pointermove', e=>{
+  pointers=pointers.map(p=>p.pointerId===e.pointerId?e:p);
+  if(pointers.length===1){ sphere.rotation.y+=e.movementX*0.005; sphere.rotation.x+=e.movementY*0.005; }
+  if(pointers.length===2){ const dx=pointers[0].clientX-pointers[1].clientX; const dy=pointers[0].clientY-pointers[1].clientY; const d=Math.hypot(dx,dy); if(lastDist) camera.position.z+=(lastDist-d)*0.5; lastDist=d; }
+});
+addEventListener('wheel', e=>camera.position.z+=e.deltaY*0.5);
+
+// HAND ROTATION
+const video=document.getElementById('cameraView');
+const hands=new Hands({ locateFile: f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+hands.setOptions({ maxNumHands:1, modelComplexity:0, minDetectionConfidence:0.7, minTrackingConfidence:0.7 });
+let prevHand=null;
+hands.onResults(results=>{
+  if(!results.multiHandLandmarks?.length){ prevHand=null; return; }
+  const lm=results.multiHandLandmarks[0];
+  if(prevHand){
+    const dx=(lm[0].x-prevHand[0].x)*Math.PI*2;
+    const dy=(lm[0].y-prevHand[0].y)*Math.PI;
+    sphere.rotation.y+=dx*1.5; sphere.rotation.x+=dy*1.5;
+    const pinch=Math.hypot(lm[4].x-lm[8].x,lm[4].y-lm[8].y);
+    camera.position.z+=(0.08-pinch)*500;
+  }
+  prevHand=lm;
+});
+new Camera(video,{onFrame: async()=>{ await hands.send({image: video}); }, width:640,height:480}).start();
+
+// AUTO ROTATE
+const AUTO_SPEED=0.0015;
+
+// RENDER
+(function animate(){
+  requestAnimationFrame(animate);
+  sphere.rotation.y+=AUTO_SPEED;
+  camera.position.z=THREE.MathUtils.clamp(camera.position.z,160,600);
+  renderer.render(scene,camera);
+})();
+addEventListener('resize', ()=>{ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+</script>
+</body>
+</html>
