@@ -24,6 +24,15 @@ body { margin:0; overflow:hidden; background:#000; font-family:system-ui; }
 <body>
 <video id="cameraView" autoplay muted playsinline></video>
 <audio id="bgMusic" src="images/happy-birthday-357371.mp3" autoplay loop></audio>
+  <script>
+const music = document.getElementById('bgMusic');
+
+// Start music on first touch/click anywhere on page
+document.body.addEventListener('pointerdown', function startMusic() {
+    music.play();
+    document.body.removeEventListener('pointerdown', startMusic);
+});
+</script>
 <div id="instructions">
 <b>Instructions:</b><br>
 -
@@ -197,5 +206,6 @@ addEventListener('resize', ()=>{ camera.aspect=window.innerWidth/window.innerHei
 </script>
 </body>
 </html>
+
 
 
