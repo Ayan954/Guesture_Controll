@@ -2,11 +2,23 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Birthday Sphere</title>
+<title>Fully Scattered Neon Sphere</title>
 <style>
 body { margin:0; overflow:hidden; background:#000; font-family:system-ui; }
-#cameraView { position:fixed; top:12px; right:12px; width:200px; height:150px; border-radius:12px; border:2px solid #ff69b4; object-fit:cover; z-index:10; }
-#instructions { position:fixed; bottom:12px; left:50%; transform:translateX(-50%); width:90%; font-size:14px; line-height:1.4; color:#fff; text-align:center; background:rgba(0,0,0,0.4); padding:10px 12px; border-radius:10px; box-shadow:0 0 15px rgba(255,105,180,0.5); z-index:10; }
+#cameraView{
+  position:fixed; top:12px; right:12px;
+  width:200px; height:150px;
+  border-radius:12px; border:2px solid #ff69b4;
+  object-fit:cover; z-index:10;
+}
+#instructions{
+  position:fixed; bottom:12px; left:50%;
+  transform:translateX(-50%);
+  width:90%; font-size:14px; line-height:1.4;
+  color:#fff; text-align:center; background:rgba(0,0,0,0.4);
+  padding:10px 12px; border-radius:10px;
+  box-shadow:0 0 15px rgba(255,105,180,0.5); z-index:10;
+}
 </style>
 </head>
 <body>
@@ -16,7 +28,7 @@ body { margin:0; overflow:hidden; background:#000; font-family:system-ui; }
 - Rotate sphere with hand (or drag).<br>
 - Pinch to zoom.<br>
 - Texts, emojis, and images are visible.<br>
-- Run this file via localhost or HTTPS to enable camera.
+- Run via localhost or HTTPS to enable camera.
 </div>
 
 <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
@@ -24,77 +36,134 @@ body { margin:0; overflow:hidden; background:#000; font-family:system-ui; }
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 
 <script>
-// THREE SETUP
+// ---------------- THREE SETUP ----------------
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(70,window.innerWidth/window.innerHeight,0.1,2000);
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 2000);
 camera.position.z = 300;
 const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setSize(window.innerWidth,window.innerHeight);
+renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 const sphere = new THREE.Group();
 scene.add(sphere);
 
-// TEXT SPRITES
-function createTextSprite(text){
-  const canvas = document.createElement('canvas');
-  canvas.width=512; canvas.height=256;
-  const ctx = canvas.getContext('2d');
-  ctx.font='bold 64px Arial';
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.shadowColor='#ff69b4'; ctx.shadowBlur=50;
-  ctx.fillStyle='#fff'; ctx.fillText(text,256,128);
-  const tex = new THREE.CanvasTexture(canvas); tex.needsUpdate=true;
-  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent:true }));
-  sprite.scale.set(150,75,1);
-  return sprite;
-}
-function emojiSprite(e){
-  const c=document.createElement('canvas'); c.width=128; c.height=128;
-  const ctx=c.getContext('2d'); ctx.font='64px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(e,64,64);
-  const tex=new THREE.CanvasTexture(c); tex.needsUpdate=true;
-  return new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true}));
-}
-function place(obj,r,phi,theta){
-  obj.position.set(r*Math.sin(phi)*Math.cos(theta), r*Math.cos(phi), r*Math.sin(phi)*Math.sin(theta));
+// ---------------- HELPERS ----------------
+function place(obj, r, phi, theta){
+  obj.position.set(
+    r * Math.sin(phi) * Math.cos(theta),
+    r * Math.cos(phi),
+    r * Math.sin(phi) * Math.sin(theta)
+  );
   obj.lookAt(0,0,0);
 }
 
-// ELEMENTS
-const TEXTS=["Happy Birthday 💖","Stay Blessed ✨","With Love ❤️","Forever Smiling 😊","Best Day Ever 🎂"];
-const BASE_R=160;
-for(let lat=0;lat<7;lat++){
-  for(let lon=0;lon<14;lon++){
-    const s=emojiSprite(Math.random()>0.5?"❤️":"🌸"); s.scale.set(20,20,1);
-    place(s,BASE_R,Math.PI*(lat+1)/8,lon*(Math.PI*2/14));
-    sphere.add(s);
-  }
-}
-TEXTS.forEach((t,i)=>{
-  const s=createTextSprite(t);
-  place(s,BASE_R+Math.random()*40-20,Math.PI*(i+1)/7,i*1.4);
-  sphere.add(s);
-});
-// scattered emojis
-for(let i=0;i<80;i++){
-  const s=emojiSprite(Math.random()>0.5?"💗":"🍃");
-  s.scale.set(16+Math.random()*16,16+Math.random()*16,1);
-  place(s,BASE_R+Math.random()*100-50, Math.random()*Math.PI, Math.random()*Math.PI*2);
-  sphere.add(s);
+function emojiSprite(e,size=64){
+  const c=document.createElement('canvas'); c.width=c.height=128;
+  const ctx=c.getContext('2d');
+  ctx.font=`${size}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(e,64,64);
+  return new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true}));
 }
 
-// TOUCH ROTATE + ZOOM
+function textSprite(text,size=44){
+  const c=document.createElement('canvas'); c.width=512;c.height=256;
+  const ctx=c.getContext('2d');
+  ctx.font=`bold ${size}px Arial`; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#fff'; ctx.shadowColor='#ff69b4'; ctx.shadowBlur=30;
+  ctx.fillText(text,256,128);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true}));
+  sp.scale.set(120,60,1);
+  return sp;
+}
+
+// ---------------- NEON IMAGE WITH BORDER ----------------
+function neonImageSprite(url,size=85){
+  const canvas=document.createElement('canvas'); 
+  canvas.width=canvas.height=256;
+  const ctx=canvas.getContext('2d'); 
+  const img=new Image();
+  const tex=new THREE.CanvasTexture(canvas);
+
+  img.src=url;
+  img.onload=()=>{
+    ctx.shadowColor="#ff4fd8"; 
+    ctx.shadowBlur=40; 
+    ctx.lineWidth=6;
+    ctx.strokeStyle="#ff4fd8"; 
+    ctx.strokeRect(10,10,236,236);
+
+    ctx.shadowBlur=0; 
+    ctx.drawImage(img,18,18,220,220);
+    tex.needsUpdate=true;
+  };
+
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true}));
+  s.scale.set(size,size,1);
+  return s;
+}
+
+// ---------------- FULLY SCATTERED EMOJIS ----------------
+const EMOJIS=["💗","💖","💝","💞","💕","❣️","❤️","🌟","✨"];
+for(let i=0;i<750;i++){
+  const e=emojiSprite(EMOJIS[Math.floor(Math.random()*EMOJIS.length)],12+Math.random()*16);
+  const phi=Math.random()*Math.PI;
+  const theta=Math.random()*2*Math.PI;
+  const r=260 + Math.random()*60-30;
+  place(e,r,phi,theta);
+  sphere.add(e);
+}
+
+// ---------------- SCATTERED IMAGES ----------------
+const IMAGE_URLS=["img1.jpeg","img2.jpeg","img3.jpeg","img4.jpeg","img5.jpeg","img6.jpeg","img7.jpeg","img8.jpeg","img9.jpeg","img10.jpeg","img11.jpeg","img12.jpeg","img13.jpeg","img14.jpeg","img15.jpeg","img16.jpeg","img17.jpeg"];
+IMAGE_URLS.forEach(url=>{
+  const im = neonImageSprite("images/"+url, 90);
+  const phi=Math.random()*Math.PI;
+  const theta=Math.random()*2*Math.PI;
+  const r=230 + Math.random()*50-25;
+  place(im,r,phi,theta);
+  sphere.add(im);
+});
+
+// ---------------- SCATTERED OUTER TEXTS ----------------
+const TEXTS=["Happy Birthday 💖🎂","Stay Blessed ✨🌟","With Love ❤️❣️","Forever Smiling 😊💕","Best Day Ever 🎉🎂","Shine Bright 🌟✨","Lots of Love 💗💝","Make a Wish ✨💫","Celebrate Life 🎉❤️"];
+for(let i=0;i<120;i++){
+  const t=textSprite(TEXTS[Math.floor(Math.random()*TEXTS.length)],50);
+  const phi=Math.random()*Math.PI;
+  const theta=Math.random()*2*Math.PI;
+  const r=300 + Math.random()*50-25;
+  place(t,r,phi,theta);
+  sphere.add(t);
+}
+
+// ---------------- INNER FILL ----------------
+const INNER_TEXTS=["💖","💗","✨","🌟","With Love ❤️","Stay Blessed ✨","Happy 🎂"];
+for(let i=0;i<180;i++){
+  const choice=Math.random()>0.5 ? emojiSprite(INNER_TEXTS[Math.floor(Math.random()*INNER_TEXTS.length)],10)
+                                  : textSprite(INNER_TEXTS[Math.floor(Math.random()*INNER_TEXTS.length)],30);
+  const phi=Math.random()*Math.PI;
+  const theta=Math.random()*2*Math.PI;
+  const r=150 + Math.random()*80-40;
+  place(choice,r,phi,theta);
+  sphere.add(choice);
+}
+
+// ---------------- TOUCH ROTATE + ZOOM ----------------
 let pointers=[], lastDist=0;
 addEventListener('pointerdown', e=>pointers.push(e));
 addEventListener('pointerup', e=>{ pointers=pointers.filter(p=>p.pointerId!==e.pointerId); lastDist=0; });
 addEventListener('pointermove', e=>{
   pointers=pointers.map(p=>p.pointerId===e.pointerId?e:p);
   if(pointers.length===1){ sphere.rotation.y+=e.movementX*0.005; sphere.rotation.x+=e.movementY*0.005; }
-  if(pointers.length===2){ const dx=pointers[0].clientX-pointers[1].clientX; const dy=pointers[0].clientY-pointers[1].clientY; const d=Math.hypot(dx,dy); if(lastDist) camera.position.z+=(lastDist-d)*0.5; lastDist=d; }
+  if(pointers.length===2){ 
+    const dx=pointers[0].clientX-pointers[1].clientX;
+    const dy=pointers[0].clientY-pointers[1].clientY;
+    const d=Math.hypot(dx,dy); 
+    if(lastDist) camera.position.z+=(lastDist-d)*0.5; 
+    lastDist=d; 
+  }
 });
 addEventListener('wheel', e=>camera.position.z+=e.deltaY*0.5);
 
-// HAND ROTATION
+// ---------------- HAND ROTATION ----------------
 const video=document.getElementById('cameraView');
 const hands=new Hands({ locateFile: f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
 hands.setOptions({ maxNumHands:1, modelComplexity:0, minDetectionConfidence:0.7, minTrackingConfidence:0.7 });
@@ -113,17 +182,17 @@ hands.onResults(results=>{
 });
 new Camera(video,{onFrame: async()=>{ await hands.send({image: video}); }, width:640,height:480}).start();
 
-// AUTO ROTATE
+// ---------------- AUTO ROTATE ----------------
 const AUTO_SPEED=0.0015;
 
-// RENDER
+// ---------------- RENDER ----------------
 (function animate(){
   requestAnimationFrame(animate);
   sphere.rotation.y+=AUTO_SPEED;
   camera.position.z=THREE.MathUtils.clamp(camera.position.z,160,600);
   renderer.render(scene,camera);
 })();
-addEventListener('resize', ()=>{ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+addEventListener('resize', ()=>{ camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,window.innerHeight); });
 </script>
 </body>
 </html>
